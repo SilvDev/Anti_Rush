@@ -1,6 +1,6 @@
 /*
 *	Anti Rush
-*	Copyright (C) 2021 Silvers
+*	Copyright (C) 2022 Silvers
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.17"
+#define PLUGIN_VERSION 		"1.18"
 #define DEBUG_BENCHMARK		0			// 0=Off. 1=Benchmark logic function.
 
 /*======================================================================================
@@ -32,6 +32,10 @@
 
 ========================================================================================
 	Change Log:
+
+1.18 (01-Jun-2022)
+	- L4D1: Fixed throwing errors.
+	- L4D2: Added map "c5m5_bridge" to the data config.
 
 1.17 (04-Dec-2021)
 	- Changes to fix warnings when compiling on SourceMod 1.11.
@@ -248,12 +252,12 @@ public void OnConfigsExecuted()
 	IsAllowed();
 }
 
-public void ConVarChanged_Allow(Handle convar, const char[] oldValue, const char[] newValue)
+void ConVarChanged_Allow(Handle convar, const char[] oldValue, const char[] newValue)
 {
 	IsAllowed();
 }
 
-public void ConVarChanged_Cvars(Handle convar, const char[] oldValue, const char[] newValue)
+void ConVarChanged_Cvars(Handle convar, const char[] oldValue, const char[] newValue)
 {
 	GetCvars();
 }
@@ -375,7 +379,7 @@ bool IsAllowedGameMode()
 	return true;
 }
 
-public void OnGamemode(const char[] output, int caller, int activator, float delay)
+void OnGamemode(const char[] output, int caller, int activator, float delay)
 {
 	if( strcmp(output, "OnCoop") == 0 )
 		g_iCurrentMode = 1;
@@ -426,7 +430,7 @@ bool ParseConfigFile(const char[] file)
 	return (result == SMCError_Okay);
 }
 
-public SMCResult ColorConfig_NewSection(Handle parser, const char[] section, bool quotes)
+SMCResult ColorConfig_NewSection(Handle parser, const char[] section, bool quotes)
 {
 	g_iSectionLevel++;
 
@@ -441,7 +445,7 @@ public SMCResult ColorConfig_NewSection(Handle parser, const char[] section, boo
 	return SMCParse_Continue;
 }
 
-public SMCResult ColorConfig_KeyValue(Handle parser, const char[] key, const char[] value, bool key_quotes, bool value_quotes)
+SMCResult ColorConfig_KeyValue(Handle parser, const char[] key, const char[] value, bool key_quotes, bool value_quotes)
 {
 	// On / Off
 	if( g_iSectionLevel == 2 && g_bFoundMap )
@@ -476,24 +480,24 @@ public SMCResult ColorConfig_KeyValue(Handle parser, const char[] key, const cha
 	return SMCParse_Continue;
 }
 
-public void OutputStart(const char[] output, int caller, int activator, float delay)
+void OutputStart(const char[] output, int caller, int activator, float delay)
 {
 	g_bEventStarted = true;
 }
 
-public void OutputStop(const char[] output, int caller, int activator, float delay)
+void OutputStop(const char[] output, int caller, int activator, float delay)
 {
 	g_bEventStarted = false;
 }
 
 
-public SMCResult ColorConfig_EndSection(Handle parser)
+SMCResult ColorConfig_EndSection(Handle parser)
 {
 	g_iSectionLevel--;
 	return SMCParse_Continue;
 }
 
-public void ColorConfig_End(Handle parser, bool halted, bool failed)
+void ColorConfig_End(Handle parser, bool halted, bool failed)
 {
 	if( failed )
 		SetFailState("Error: Cannot load the config file: \"%s\"", EVENTS_CONFIG);
@@ -534,7 +538,7 @@ int FindByClassTargetName(const char[] sClass, const char[] sTarget)
 // ====================================================================================================
 //					EVENTS
 // ====================================================================================================
-public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
+void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	delete g_hTimer;
 
@@ -566,13 +570,13 @@ public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 	}
 }
 
-public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
+void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	ResetSlowdown();
 	ResetPlugin();
 }
 
-public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
+void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	if( client )
@@ -581,7 +585,7 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
 	}
 }
 
-public void Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
+void Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	if( client )
@@ -644,7 +648,7 @@ void ResetSlowdown()
 // ====================================================================================================
 //					LOGIC
 // ====================================================================================================
-public Action TimerTest(Handle timer)
+Action TimerTest(Handle timer)
 {
 	if( !g_bMapStarted ) return Plugin_Continue;
 
@@ -710,7 +714,7 @@ public Action TimerTest(Handle timer)
 			continue;
 
 		// Ignore healing / using stuff
-		if( GetEntPropEnt(client, Prop_Send, "m_useActionTarget") > 0 )
+		if( g_bLeft4Dead2 && GetEntPropEnt(client, Prop_Send, "m_useActionTarget") > 0 )
 			continue;
 
 		// Ignore reviving
@@ -963,7 +967,7 @@ public Action L4D_OnGetWalkTopSpeed(int target, float &retVal)
 }
 // */
 
-public void PreThinkPost(int client)
+void PreThinkPost(int client)
 {
 	SetEntPropFloat(client, Prop_Send, "m_flMaxspeed", g_fCvarSlow);
 }
