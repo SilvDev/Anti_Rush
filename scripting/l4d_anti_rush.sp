@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.20"
+#define PLUGIN_VERSION 		"1.21"
 #define DEBUG_BENCHMARK		0			// 0=Off. 1=Benchmark logic function.
 
 /*======================================================================================
@@ -32,6 +32,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.21 (28-Jan-2024)
+	- Fixed memory leak caused by clearing StringMap/ArrayList data instead of deleting.
 
 1.20 (10-Jan-2024)
 	- Changed the plugins on/off/mode cvars to use the "Left 4 DHooks" method instead of creating an entity.
@@ -555,7 +558,10 @@ void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 	}
 
 	// Get elevators
-	g_hElevators.Clear();
+	// .Clear() is creating a memory leak
+	// g_hElevators.Clear();
+	delete g_hElevators;
+	g_hElevators = new ArrayList();
 
 	int entity = -1;
 	while( (entity = FindEntityByClassname(entity, "func_elevator")) != INVALID_ENT_REFERENCE )
@@ -609,7 +615,11 @@ void ResetPlugin()
 
 	delete g_hTimer;
 
-	g_hElevators.Clear();
+	// .Clear() is creating a memory leak
+	// g_hElevators.Clear();
+	delete g_hElevators;
+	g_hElevators = new ArrayList();
+
 	g_fEventExtended = 0.0;
 	g_bEventStarted = false;
 }
