@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.21"
+#define PLUGIN_VERSION 		"1.22"
 #define DEBUG_BENCHMARK		0			// 0=Off. 1=Benchmark logic function.
 
 /*======================================================================================
@@ -32,6 +32,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.22 (05-Mar-2024)
+	- Fixed using the lead range instead of last range when teleporting the slacker. Thanks to "49459317" for reporting.
 
 1.21 (28-Jan-2024)
 	- Fixed memory leak caused by clearing StringMap/ArrayList data instead of deleting.
@@ -910,7 +913,7 @@ Action TimerTest(Handle timer)
 					if( g_bEventStarted ) distance -= g_fEventExtended;
 
 					// Warn behind hint
-					if( g_iCvarText && g_fCvarWarnTime && g_fCvarWarnLast && distance > g_fCvarWarnLast && distance < g_fCvarRangeLead && g_fHintWarn[client] < GetGameTime() )
+					if( g_iCvarText && g_fCvarWarnTime && g_fCvarWarnLast && distance > g_fCvarWarnLast && distance < g_fCvarRangeLast && g_fHintWarn[client] < GetGameTime() )
 					{
 						g_fHintWarn[client] = GetGameTime() + g_fCvarWarnTime;
 
