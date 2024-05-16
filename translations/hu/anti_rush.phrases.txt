@@ -39,4 +39,9 @@
 	{
 		"hu"	"{orange}[Anti Rush] {green}Túl messze jársz a társaidtól, {orange}fordulj vissza vagy {green}vagy elveszíti az egészségét."
 	}
+
+	"Warn_Health2"
+	{
+		"hu"	"{orange}[Anti Rush] {green}Túl messze jársz a társaidtól, {orange}igyekezz vagy {green}vagy elveszíti az egészségét."
+	}
 }

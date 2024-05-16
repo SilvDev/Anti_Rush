@@ -39,4 +39,9 @@
 	{
 		"en"	"{orange}[Anti Rush] {green}You're moving {orange}too far ahead {green}of Survivors, {orange}move back {green}or lose health."
 	}
+
+	"Warn_Health2"
+	{
+		"en"	"{orange}[Anti Rush] {green}You're moving {orange}too far behind {green}Survivors, {orange}move forward {green}or lose health."
+	}
 }

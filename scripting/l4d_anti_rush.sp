@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.22"
+#define PLUGIN_VERSION 		"1.23"
 #define DEBUG_BENCHMARK		0			// 0=Off. 1=Benchmark logic function.
 
 /*======================================================================================
@@ -32,6 +32,14 @@
 
 ========================================================================================
 	Change Log:
+
+1.23 (16-May-2024)
+	- Added cvar "l4d_anti_rush_flash" to display a flash when health is being taken away.
+	- Added cvar "l4d_anti_rush_sound" to play a sound when health is being taken away.
+	- Added cvars "l4d_anti_rush_type2" and "l4d_anti_rush_health2" to hurt players who are rushing.
+	- Changed cvars "l4d_anti_rush_range_last" and "l4d_anti_rush_time" description to include health drain.
+	- Changes requested by "Voevoda".
+	- All translations updated.
 
 1.22 (05-Mar-2024)
 	- Fixed using the lead range instead of last range when teleporting the slacker. Thanks to "49459317" for reporting.
@@ -154,9 +162,9 @@ float g_iBenchTicks;
 #define EVENTS_CONFIG		"data/l4d_anti_rush.cfg"
 
 
-ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarFinale, g_hCvarFlags, g_hCvarIgnore, g_hCvarHealth, g_hCvarIncap, g_hCvarPlayers, g_hCvarRangeLast, g_hCvarRangeLead, g_hCvarSlow, g_hCvarTank, g_hCvarText, g_hCvarTime, g_hCvarType, g_hCvarWarnLast, g_hCvarWarnLead, g_hCvarWarnTime;
-float g_fCvarHealth, g_fCvarRangeLast, g_fCvarRangeLead, g_fCvarSlow, g_fCvarTime, g_fCvarWarnLast, g_fCvarWarnLead, g_fCvarWarnTime;
-int g_iCvarFinale, g_iCvarFlags, g_iCvarIgnore, g_iCvarIncap, g_iCvarPlayers, g_iCvarTank, g_iCvarText, g_iCvarType;
+ConVar g_hCvarAllow, g_hCvarMPGameMode, g_hCvarModes, g_hCvarModesOff, g_hCvarModesTog, g_hCvarFinale, g_hCvarFlags, g_hCvarFlash, g_hCvarIgnore, g_hCvarHealth, g_hCvarHealth2, g_hCvarIncap, g_hCvarPlayers, g_hCvarRangeLast, g_hCvarRangeLead, g_hCvarSound, g_hCvarSlow, g_hCvarTank, g_hCvarText, g_hCvarTime, g_hCvarType, g_hCvarType2, g_hCvarWarnLast, g_hCvarWarnLead, g_hCvarWarnTime;
+float g_fCvarHealth, g_fCvarHealth2, g_fCvarRangeLast, g_fCvarRangeLead, g_fCvarSlow, g_fCvarTime, g_fCvarWarnLast, g_fCvarWarnLead, g_fCvarWarnTime;
+int g_iCvarFinale, g_iCvarFlags, g_iCvarFlash, g_iCvarIgnore, g_iCvarIncap, g_iCvarPlayers, g_iCvarTank, g_iCvarText, g_iCvarType, g_iCvarType2;
 bool g_bCvarAllow, g_bMapStarted, g_bLeft4Dead2;
 
 bool g_bInhibit[MAXPLAYERS+1];
@@ -165,6 +173,7 @@ float g_fHintWarn[MAXPLAYERS+1];
 float g_fLastFlow[MAXPLAYERS+1];
 Handle g_hTimer;
 
+char g_sCvarSound[PLATFORM_MAX_PATH];
 char g_sMap[PLATFORM_MAX_PATH];
 bool g_bFoundMap;
 bool g_bEventStarted;
@@ -211,17 +220,21 @@ public void OnPluginStart()
 	g_hCvarModesTog =	CreateConVar(	"l4d_anti_rush_modes_tog",		"0",							"Turn on the plugin in these game modes. 0=All, 1=Coop, 2=Survival, 4=Versus, 8=Scavenge. Add numbers together.", CVAR_FLAGS );
 	g_hCvarFinale =		CreateConVar(	"l4d_anti_rush_finale",			g_bLeft4Dead2 ? "2" : "0",		"Should the plugin activate in finales. 0=Off. 1=All finales. 2=Gauntlet type finales (L4D2 only).", CVAR_FLAGS );
 	g_hCvarFlags =		CreateConVar(	"l4d_anti_rush_flags",			"",								"Players with these flags will be immune from teleporting forward when behind or slowing down when ahead.", CVAR_FLAGS );
+	g_hCvarFlash =		CreateConVar(	"l4d_anti_rush_flash",			"1",							"0=Off. When rushing or slacking display a flash when health is being taken away: 1=Red flash, 2=White flash, 3=Black flash.", CVAR_FLAGS);
 	g_hCvarHealth =		CreateConVar(	"l4d_anti_rush_health",			"0",							"0=Off. Amount of health to remove every second when someone is rushing.", CVAR_FLAGS);
+	g_hCvarHealth2 =	CreateConVar(	"l4d_anti_rush_health2",		"0",							"0=Off. Amount of health to remove every second when someone is behind.", CVAR_FLAGS);
 	g_hCvarIgnore =		CreateConVar(	"l4d_anti_rush_ignore",			"0",							"Should players with the immune flags be counted toward total flow distance. 0=Ignore them. 1=Count them.", CVAR_FLAGS );
 	g_hCvarIncap =		CreateConVar(	"l4d_anti_rush_incapped",		"0",							"0=Off. How many survivors must be incapped before ignoring them in calculating rushers and slackers.", CVAR_FLAGS );
 	g_hCvarPlayers =	CreateConVar(	"l4d_anti_rush_players",		"3",							"Minimum number of alive survivors before the function kicks in. Must be 3 or greater otherwise the lead/last and average cannot be detected.", CVAR_FLAGS, true, 3.0 );
-	g_hCvarRangeLast =	CreateConVar(	"l4d_anti_rush_range_last",		"3000.0",						"0.0=Off. How far behind someone can travel from the average Survivor distance before being teleported forward.", CVAR_FLAGS );
+	g_hCvarRangeLast =	CreateConVar(	"l4d_anti_rush_range_last",		"3000.0",						"0.0=Off. How far behind someone can travel from the average Survivor distance before being teleported forward or health drained.", CVAR_FLAGS );
 	g_hCvarRangeLead =	CreateConVar(	"l4d_anti_rush_range_lead",		"3000.0",						"How far forward someone can travel from the average Survivor distance before being teleported, slowed down or health drained.", CVAR_FLAGS, true, MINIMUM_RANGE );
+	g_hCvarSound =		CreateConVar(	"l4d_anti_rush_sound",			"player/neck_snap_01.wav",		"Empty string = none. When rushing or slacking display play this sound when health is being taken away.", CVAR_FLAGS );
 	g_hCvarSlow =		CreateConVar(	"l4d_anti_rush_slow",			"75.0",							"Maximum speed someone can travel when being slowed down.", CVAR_FLAGS, true, 20.0 );
 	g_hCvarTank =		CreateConVar(	"l4d_anti_rush_tanks",			"1",							"0=Off. 1=On. Should Anti-Rush be enabled when there are active Tanks.", CVAR_FLAGS );
 	g_hCvarText =		CreateConVar(	"l4d_anti_rush_text",			"1",							"0=Off. 1=Print To Chat. 2=Hint Text. Display a message to someone rushing, or falling behind.", CVAR_FLAGS );
-	g_hCvarTime =		CreateConVar(	"l4d_anti_rush_time",			"10",							"How often to print the message to someone if slowdown is enabled and affecting them.", CVAR_FLAGS );
+	g_hCvarTime =		CreateConVar(	"l4d_anti_rush_time",			"10",							"How often to print the message to someone if slowdown or health drain is enabled and affecting them.", CVAR_FLAGS );
 	g_hCvarType =		CreateConVar(	"l4d_anti_rush_type",			"1",							"What to do with rushers. 0=Ignore (used for health drain only). 1=Slowdown player speed when moving forward. 2=Teleport back to group.", CVAR_FLAGS );
+	g_hCvarType2 =		CreateConVar(	"l4d_anti_rush_type2",			"1",							"What to do with slackers. 0=Ignore (used for health drain only). 1=Teleport back to group.", CVAR_FLAGS );
 	g_hCvarWarnLast =	CreateConVar(	"l4d_anti_rush_warn_last",		"2500.0",						"How far behind someone can travel from the average Survivor distance before being warned about being teleported.", CVAR_FLAGS, true, MINIMUM_RANGE );
 	g_hCvarWarnLead =	CreateConVar(	"l4d_anti_rush_warn_lead",		"2500.0",						"How far forward someone can travel from the average Survivor distance before being warned about being teleported or slowed down.", CVAR_FLAGS, true, MINIMUM_RANGE );
 	g_hCvarWarnTime =	CreateConVar(	"l4d_anti_rush_warn_time",		"15.0",							"0.0=Off. How often to print a message to someone warning them they are ahead or behind and will be teleported or slowed down.", CVAR_FLAGS );
@@ -236,7 +249,9 @@ public void OnPluginStart()
 	g_hCvarAllow.AddChangeHook(ConVarChanged_Allow);
 	g_hCvarFinale.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarFlags.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarFlash.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarHealth.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarHealth2.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarIgnore.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarIncap.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarPlayers.AddChangeHook(ConVarChanged_Cvars);
@@ -244,9 +259,11 @@ public void OnPluginStart()
 	g_hCvarRangeLead.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarTank.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarText.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarSound.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarSlow.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarTime.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarType.AddChangeHook(ConVarChanged_Cvars);
+	g_hCvarType2.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarWarnLast.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarWarnLead.AddChangeHook(ConVarChanged_Cvars);
 	g_hCvarWarnTime.AddChangeHook(ConVarChanged_Cvars);
@@ -280,13 +297,17 @@ void ConVarChanged_Cvars(Handle convar, const char[] oldValue, const char[] newV
 
 void GetCvars()
 {
-	char sTemp[32];
+	char sTemp[PLATFORM_MAX_PATH];
 	g_hCvarFlags.GetString(sTemp, sizeof(sTemp));
 	g_iCvarFlags = ReadFlagString(sTemp);
-	g_iCvarIgnore = g_hCvarIgnore.IntValue;
 
-	g_iCvarFinale = g_hCvarFinale.IntValue;
+	g_hCvarSound.GetString(g_sCvarSound, sizeof(g_sCvarSound));
+
+	g_iCvarIgnore = g_hCvarIgnore.IntValue;
+	g_iCvarFlash = g_hCvarFinale.IntValue;
+	g_iCvarFlash = g_hCvarFlash.IntValue;
 	g_fCvarHealth = g_hCvarHealth.FloatValue;
+	g_fCvarHealth2 = g_hCvarHealth2.FloatValue;
 	g_iCvarIncap = g_hCvarIncap.IntValue;
 	g_iCvarPlayers = g_hCvarPlayers.IntValue;
 	g_fCvarTime = g_hCvarTime.FloatValue;
@@ -294,6 +315,7 @@ void GetCvars()
 	g_iCvarText = g_hCvarText.IntValue;
 	g_fCvarSlow = g_hCvarSlow.FloatValue;
 	g_iCvarType = g_hCvarType.IntValue;
+	g_iCvarType2 = g_hCvarType2.IntValue;
 	g_fCvarRangeLast = g_hCvarRangeLast.FloatValue;
 	g_fCvarRangeLead = g_hCvarRangeLead.FloatValue;
 	g_fCvarWarnLast = g_hCvarWarnLast.FloatValue;
@@ -845,7 +867,7 @@ Action TimerTest(Handle timer)
 									// Hurt for rushing?
 									if( g_fCvarHealth )
 									{
-										SDKHooks_TakeDamage(client, 0, 0, g_fCvarHealth);
+										DamageClient(client, g_fCvarHealth);
 									}
 								}
 								else if( flow < g_fLastFlow[client] )
@@ -889,7 +911,7 @@ Action TimerTest(Handle timer)
 
 
 
-		// Teleport slacker
+		// Detect slackers
 		if( g_fCvarRangeLast )
 		{
 			// Loop through survivors from lowest flow to mid-way through the pack.
@@ -917,24 +939,38 @@ Action TimerTest(Handle timer)
 					{
 						g_fHintWarn[client] = GetGameTime() + g_fCvarWarnTime;
 
-						ClientHintMessage(client, "Warn_Behind");
+						if( g_iCvarType2 == 0 ) ClientHintMessage(client, "Warn_Health2");
+						else if( g_fCvarHealth2 ) ClientHintMessage(client, "Warn_Behind");
 					}
 
 					// Compare lower flow with next survivor, they're behind
-					if( distance > g_fCvarRangeLast && IsClientPinned(client) == false )
+					if( distance > g_fCvarRangeLast )
 					{
 						// PrintToServer("SLOW: %N %f", client, distance);
 						clientAvg = aList.Get(x, 1);
 						float vPos[3];
 						GetClientAbsOrigin(clientAvg, vPos);
 
-						// Hint
-						if( g_iCvarText )
+						if( g_iCvarType2 == 1 && IsClientPinned(client) == false )
 						{
-							ClientHintMessage(client, "Rush_Behind");
+							TeleportEntity(client, vPos, NULL_VECTOR, NULL_VECTOR);
 						}
 
-						TeleportEntity(client, vPos, NULL_VECTOR, NULL_VECTOR);
+						// Hint
+						if( g_iCvarText && g_fHintLast[client] < GetGameTime() )
+						{
+							g_fHintLast[client] = GetGameTime() + g_fCvarTime;
+
+							if( g_iCvarType2 == 0 ) ClientHintMessage(client, "Warn_Health2");
+							else if( g_fCvarHealth2 ) ClientHintMessage(client, "Rush_Behind");
+						}
+
+						// Hurt for slacking?
+						if( g_fCvarHealth2 )
+						{
+							DamageClient(client, g_fCvarHealth2);
+						}
+
 						break;
 					}
 				}
@@ -960,6 +996,50 @@ Action TimerTest(Handle timer)
 	#endif
 
 	return Plugin_Continue;
+}
+
+void DamageClient(int client, float damage)
+{
+	SDKHooks_TakeDamage(client, 0, 0, damage);
+
+	if( g_iCvarFlash )
+	{
+		// Blind
+		Handle message = StartMessageOne("Fade", client);
+		BfWrite bf = UserMessageToBfWrite(message);
+		bf.WriteShort(100);
+		bf.WriteShort(100);
+		bf.WriteShort(0x0001);
+		switch( g_iCvarFlash )
+		{
+			case 1:
+			{
+				bf.WriteByte(255);
+				bf.WriteByte(0);
+				bf.WriteByte(0);
+			}
+			case 2:
+			{
+				bf.WriteByte(255);
+				bf.WriteByte(255);
+				bf.WriteByte(255);
+			}
+			case 3:
+			{
+				bf.WriteByte(0);
+				bf.WriteByte(0);
+				bf.WriteByte(0);
+			}
+		}
+
+		bf.WriteByte(100);
+		EndMessage();
+	}
+
+	if( g_sCvarSound[0] )
+	{
+		EmitSoundToClient(client, g_sCvarSound);
+	}
 }
 
 /* Remove this line to enable, if you want to limit speed (slower) than default when walking/crouched.

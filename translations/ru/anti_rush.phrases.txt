@@ -39,4 +39,9 @@
 	{
 		"ru"	"{orange}[Anti Rush] {green}Вы продвигаетесь {orange}слишком далеко вперед {green}выживших, {orange}двигайтесь назад {green}или потеряете здоровье."
 	}
+
+	"Warn_Health2"
+	{
+		"ru"	"{orange}[Anti Rush] {green}Вы отстаете {orange}слишком далеко от выживших {green}выживших, {orange}двигайтесь вперед {green}или потеряете здоровье."
+	}
 }
