@@ -1,6 +1,6 @@
 /*
 *	Anti Rush
-*	Copyright (C) 2024 Silvers
+*	Copyright (C) 2025 Silvers
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.23"
+#define PLUGIN_VERSION 		"1.24"
 #define DEBUG_BENCHMARK		0			// 0=Off. 1=Benchmark logic function.
 
 /*======================================================================================
@@ -32,6 +32,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.24 (21-May-2025)
+	- Fixed not ignoring Chargers carrying someone when they are about to be pummelled. Thanks to "little_froy" for reporting.
 
 1.23 (16-May-2024)
 	- Added cvar "l4d_anti_rush_flash" to display a flash when health is being taken away.
@@ -228,8 +231,8 @@ public void OnPluginStart()
 	g_hCvarPlayers =	CreateConVar(	"l4d_anti_rush_players",		"3",							"Minimum number of alive survivors before the function kicks in. Must be 3 or greater otherwise the lead/last and average cannot be detected.", CVAR_FLAGS, true, 3.0 );
 	g_hCvarRangeLast =	CreateConVar(	"l4d_anti_rush_range_last",		"3000.0",						"0.0=Off. How far behind someone can travel from the average Survivor distance before being teleported forward or health drained.", CVAR_FLAGS );
 	g_hCvarRangeLead =	CreateConVar(	"l4d_anti_rush_range_lead",		"3000.0",						"How far forward someone can travel from the average Survivor distance before being teleported, slowed down or health drained.", CVAR_FLAGS, true, MINIMUM_RANGE );
-	g_hCvarSound =		CreateConVar(	"l4d_anti_rush_sound",			"player/neck_snap_01.wav",		"Empty string = none. When rushing or slacking display play this sound when health is being taken away.", CVAR_FLAGS );
 	g_hCvarSlow =		CreateConVar(	"l4d_anti_rush_slow",			"75.0",							"Maximum speed someone can travel when being slowed down.", CVAR_FLAGS, true, 20.0 );
+	g_hCvarSound =		CreateConVar(	"l4d_anti_rush_sound",			"player/neck_snap_01.wav",		"Empty string = none. When rushing or slacking display play this sound when health is being taken away.", CVAR_FLAGS );
 	g_hCvarTank =		CreateConVar(	"l4d_anti_rush_tanks",			"1",							"0=Off. 1=On. Should Anti-Rush be enabled when there are active Tanks.", CVAR_FLAGS );
 	g_hCvarText =		CreateConVar(	"l4d_anti_rush_text",			"1",							"0=Off. 1=Print To Chat. 2=Hint Text. Display a message to someone rushing, or falling behind.", CVAR_FLAGS );
 	g_hCvarTime =		CreateConVar(	"l4d_anti_rush_time",			"10",							"How often to print the message to someone if slowdown or health drain is enabled and affecting them.", CVAR_FLAGS );
@@ -748,6 +751,10 @@ Action TimerTest(Handle timer)
 
 		// Ignore reviving
 		if( GetEntPropEnt(client, Prop_Send, "m_reviveOwner") > 0 || GetEntPropEnt(client, Prop_Send, "m_reviveTarget") > 0 )
+			continue;
+
+		// Ignore queued pummel by Charger
+		if( g_bLeft4Dead2 && L4D2_GetQueuedPummelAttacker(client) != -1 )
 			continue;
 
 		// Ignore pinned by Charger
