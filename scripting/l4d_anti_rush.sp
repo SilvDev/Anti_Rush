@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.24"
+#define PLUGIN_VERSION 		"1.25"
 #define DEBUG_BENCHMARK		0			// 0=Off. 1=Benchmark logic function.
 
 /*======================================================================================
@@ -32,6 +32,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.25 (01-Jul-2025)
+	- Plugin now fires a forward "Anti_Rush_Trigger" for clients who are rushing or slacking. Useful for external plugins to trigger events.
 
 1.24 (21-May-2025)
 	- Fixed not ignoring Chargers carrying someone when they are about to be pummelled. Thanks to "little_froy" for reporting.
@@ -184,6 +187,24 @@ float g_fEventExtended;
 
 ArrayList g_hElevators;
 
+GlobalForward g_hForward;
+
+
+
+// ====================================================================================================
+//					FORWARDS
+// ====================================================================================================
+/**
+ * @brief Called whenever a player or bot gives an item to someone
+ *
+ * @param client		The client receiving a warning or punishment
+ * @param rushing		False = Player is slacking - too far behind. True = Player is rushing - too far ahead
+ * @param punishment	Type of punishment: 0=None. 1=Slowed down. 2=Teleported. 3=Losing health
+ *
+ * @noreturn
+ */
+forward void Anti_Rush_Trigger(int client, bool rushing, int punishment);
+
 
 
 // ====================================================================================================
@@ -209,6 +230,10 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 		strcopy(error, err_max, "Plugin only supports Left 4 Dead 1 & 2.");
 		return APLRes_SilentFailure;
 	}
+
+	RegPluginLibrary("l4d_anti_rush");
+
+	g_hForward = new GlobalForward("Anti_Rush_Trigger", ET_Event, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
 
 	return APLRes_Success;
 }
@@ -836,6 +861,13 @@ Action TimerTest(Handle timer)
 								case 1: ClientHintMessage(client, "Warn_Slowdown");
 								case 2: ClientHintMessage(client, "Warn_Ahead");
 							}
+
+							// Forward
+							Call_StartForward(g_hForward);
+							Call_PushCell(client);
+							Call_PushCell(true);
+							Call_PushCell(0);
+							Call_Finish();
 						}
 
 						// Compare higher flow with next survivor, they're rushing
@@ -902,6 +934,13 @@ Action TimerTest(Handle timer)
 								TeleportEntity(client, vPos, NULL_VECTOR, NULL_VECTOR);
 							}
 
+							// Forward
+							Call_StartForward(g_hForward);
+							Call_PushCell(client);
+							Call_PushCell(true);
+							Call_PushCell(g_iCvarType == 2 ? 2 : g_fCvarHealth ? 3 : 1);
+							Call_Finish();
+
 							break;
 						}
 					}
@@ -948,6 +987,13 @@ Action TimerTest(Handle timer)
 
 						if( g_iCvarType2 == 0 ) ClientHintMessage(client, "Warn_Health2");
 						else if( g_fCvarHealth2 ) ClientHintMessage(client, "Warn_Behind");
+
+						// Forward
+						Call_StartForward(g_hForward);
+						Call_PushCell(client);
+						Call_PushCell(false);
+						Call_PushCell(0);
+						Call_Finish();
 					}
 
 					// Compare lower flow with next survivor, they're behind
@@ -977,6 +1023,13 @@ Action TimerTest(Handle timer)
 						{
 							DamageClient(client, g_fCvarHealth2);
 						}
+
+						// Forward
+						Call_StartForward(g_hForward);
+						Call_PushCell(client);
+						Call_PushCell(false);
+						Call_PushCell(g_iCvarType2 == 1 ? 2 : g_fCvarHealth2 ? 3 : 0);
+						Call_Finish();
 
 						break;
 					}
