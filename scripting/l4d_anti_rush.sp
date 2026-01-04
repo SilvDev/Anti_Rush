@@ -1,6 +1,6 @@
 /*
 *	Anti Rush
-*	Copyright (C) 2025 Silvers
+*	Copyright (C) 2026 Silvers
 *
 *	This program is free software: you can redistribute it and/or modify
 *	it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 
 
-#define PLUGIN_VERSION 		"1.25"
+#define PLUGIN_VERSION 		"1.26"
 #define DEBUG_BENCHMARK		0			// 0=Off. 1=Benchmark logic function.
 
 /*======================================================================================
@@ -32,6 +32,9 @@
 
 ========================================================================================
 	Change Log:
+
+1.26 (04-Jan-2026)
+	- L4D2: Now ignores when a Survivor is queued to be pummelled. Thanks to "little_froy" for reporting.
 
 1.25 (01-Jul-2025)
 	- Plugin now fires a forward "Anti_Rush_Trigger" for clients who are rushing or slacking. Useful for external plugins to trigger events.
@@ -1166,7 +1169,8 @@ bool IsClientPinned(int client)
 	(
 		GetEntPropEnt(client, Prop_Send, "m_jockeyAttacker") > 0 ||
 		GetEntPropEnt(client, Prop_Send, "m_carryAttacker") > 0 ||
-		GetEntPropEnt(client, Prop_Send, "m_pummelAttacker") > 0
+		GetEntPropEnt(client, Prop_Send, "m_pummelAttacker") > 0 ||
+		L4D2_GetQueuedPummelAttacker(client) > 0
 	)) return true;
 
 	return false;
